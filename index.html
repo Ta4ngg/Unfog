@@ -206,7 +206,7 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
   }
 
   /* ================= Estado ================= */
-  var KEY = 'calle-a-calle-gps-v1';
+  var KEY = DEMO ? 'calle-a-calle-gps-demo-v1' : 'calle-a-calle-gps-v1'; // la prueba no mezcla su progreso con el real
   var DLAT = CONFIG.cellM / 111320, DLON = CONFIG.cellM / (111320 * COS0);
   var SEEN_M = 25, SLAT = SEEN_M / 111320, SLON = SEEN_M / (111320 * COS0);
   var visited = new Set(), pts = [], flat = [];       // pts: [mx,my] para dibujar; flat: enteros i,j para guardar
@@ -551,6 +551,11 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
   /* ================= GPS ================= */
   function onFix(lat, lon, acc, t) {
+    if (acc > 2000) {
+      me = null; syncCenterBtn(); draw();
+      status('Este equipo no tiene GPS preciso (±' + Math.round(acc / 1000) + ' km). Usa tu celular al aire libre.');
+      return;
+    }
     me = { lat: lat, lon: lon, acc: acc };
     syncCenterBtn();
     if (following) { view.mx = mxOf(lon); view.my = myOf(lat); if (view.z < CONFIG.followZoom - 0.5) view.z = CONFIG.followZoom; clampView(); }
