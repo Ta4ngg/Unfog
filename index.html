@@ -276,7 +276,7 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
   }
 
   /* ---- Mosaicos ---- */
-  var tiles = new Map();
+  var tiles = new Map(), tilesOk = 0, tileErrs = 0;
   function tileUrl(z, x, y) {
     var base = dark ? CONFIG.tilesDark : CONFIG.tilesLight;
     return base.replace('{s}', 'abcd'.charAt((x + y) & 3)).replace('{z}', z).replace('{x}', x).replace('{y}', y).replace('{r}', dpr > 1.25 ? '@2x' : '');
@@ -285,7 +285,11 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
     var k = (dark ? 'd' : 'l') + z + '/' + x + '/' + y, t = tiles.get(k);
     if (!t && load) {
       t = { ok: false, img: new Image() };
-      t.img.onload = function () { t.ok = true; draw(); };
+      t.img.onload = function () { t.ok = true; tilesOk++; draw(); };
+      t.img.onerror = function () {
+        tileErrs++;
+        if (tileErrs === 6 && !tilesOk) toast('No se está cargando el mapa. Revisa tu conexión y recarga la página.', 9000);
+      };
       t.img.src = tileUrl(z, x, y);
       tiles.set(k, t);
       if (tiles.size > 600) tiles.delete(tiles.keys().next().value);
