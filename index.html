@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#f5f5f2">
-<title>Calle a Calle</title>
+<title>Unfog</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Figtree:wght@400;500;600&display=swap" rel="stylesheet">
@@ -122,7 +122,7 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
   <header class="top">
     <div class="top-row">
       <div class="brand">
-        <h1>Calle a Calle</h1>
+        <h1>Unfog</h1>
         <p>Despeja Santiago caminando</p>
       </div>
       <div class="pct"><b id="mBig">0/0</b><span>medallas</span></div>
@@ -191,7 +191,7 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
     stepM: 0.75         // largo promedio de un paso
   };
   var Q = new URLSearchParams(location.search);
-  var DEMO = Q.has('demo'), DEV = Q.has('dev'), DBG = Q.has('debug') || DEV, VERSION = 'v6', lastTileUrl = '';
+  var DEMO = Q.has('demo'), DEV = Q.has('dev'), DBG = Q.has('debug') || DEV, VERSION = 'v8', NATIVE = (typeof window.UnfogNative !== 'undefined') ? window.UnfogNative : null, lastTileUrl = '';
 
   /* ================= Matemática de mapa ================= */
   var D2R = Math.PI / 180, LAT0 = -33.45, COS0 = Math.cos(LAT0 * D2R);
@@ -594,8 +594,42 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
     checkMedals(lat, lon); draw();
   }
 
+  /* ---- App Android: un servicio nativo guarda la ubicación aunque el teléfono esté bloqueado ---- */
+  var pollId = null;
+  function drainNative() {
+    var raw; try { raw = NATIVE.drain(); } catch (e) { return; }
+    if (!raw || raw === '[]') return;
+    var arr; try { arr = JSON.parse(raw); } catch (e) { return; }
+    for (var i = 0; i < arr.length; i++) onFix(arr[i][0], arr[i][1], arr[i][2], arr[i][3]);
+  }
+  function pollNative() {
+    var st = 'off'; try { st = NATIVE.status(); } catch (e) {}
+    if (st === 'denied') {
+      clearInterval(pollId); pollId = null; running = false; $('btnGps').textContent = 'Reanudar';
+      showWelcome('Ubicación bloqueada', 'Permite la ubicación para Unfog en los ajustes del teléfono (Permisos) y toca Reintentar.', 'Reintentar');
+      return;
+    }
+    drainNative();
+  }
+  function startNative() {
+    $('welcome').hidden = true; running = true; $('btnGps').textContent = 'Pausar';
+    status('Buscando señal GPS…');
+    try { NATIVE.start(); } catch (e) {}
+    if (pollId === null) pollId = setInterval(pollNative, 1000);
+  }
+  function stopNative() {
+    try { NATIVE.stop(); } catch (e) {}
+    if (pollId !== null) clearInterval(pollId);
+    pollId = null; running = false; last = null; $('btnGps').textContent = 'Reanudar'; status('Pausado');
+  }
+  function onBackFromBackground() { if (NATIVE && running) drainNative(); }
+  document.addEventListener('visibilitychange', function () { if (!document.hidden) onBackFromBackground(); });
+  window.addEventListener('focus', onBackFromBackground);
+  window.addEventListener('pageshow', onBackFromBackground);
+
   var watchId = null, wake = null;
   function startGps() {
+    if (NATIVE) { startNative(); return; }
     if (!navigator.geolocation) { showWelcome('Sin GPS', 'Este navegador no puede usar la ubicación. Prueba con Chrome o Safari actualizado.', null); return; }
     $('welcome').hidden = true; running = true; $('btnGps').textContent = 'Pausar';
     status('Buscando señal GPS…');
@@ -610,6 +644,7 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
     try { if (navigator.wakeLock) navigator.wakeLock.request('screen').then(function (l) { wake = l; }).catch(function () {}); } catch (e) {}
   }
   function stopGps() {
+    if (NATIVE) { stopNative(); return; }
     if (watchId !== null) navigator.geolocation.clearWatch(watchId);
     watchId = null; running = false; last = null; $('btnGps').textContent = 'Reanudar'; status('Pausado');
     try { if (wake) wake.release(); } catch (e) {}
@@ -664,6 +699,14 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
       buildMedals(); draw();
       if (DEMO) {
         status('Modo prueba: toca el mapa para moverte'); $('btnGps').textContent = 'Modo prueba'; return;
+      }
+      if (NATIVE) {
+        $('footNote').textContent = 'Unfog sigue registrando con la pantalla bloqueada. Verás una notificación mientras esté activo.';
+        var ns = 'off'; try { ns = NATIVE.status(); } catch (e) {}
+        if (ns === 'ok') { startNative(); return; }
+        status('Listo para empezar');
+        showWelcome('Explora Santiago', 'La niebla se despeja por donde caminas, incluso con el teléfono bloqueado. Necesitamos tu ubicación.', 'Activar ubicación');
+        return;
       }
       if (navigator.permissions && navigator.permissions.query) {
         navigator.permissions.query({ name: 'geolocation' }).then(function (st) {
