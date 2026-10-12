@@ -1,0 +1,13 @@
+{
+  "_nota": "Lista de lugares con medalla. Solo el desarrollador edita este archivo. Las coordenadas son APROXIMADAS: abre la app con ?dev=1 para ver cada círculo sobre el mapa y ajustar. 'radio' está en metros. Un lugar puede tener varios 'puntos' (entradas); basta pasar por uno. Poner 'importante': false quita la medalla sin borrar el lugar.",
+  "lugares": [
+    { "id": "metropolitano", "nombre": "Parque Metropolitano", "tipo": "parque", "comuna": "Providencia y Recoleta", "importante": true, "radio": 220, "puntos": [[-33.4262, -70.6330], [-33.4256, -70.6309]] },
+    { "id": "bicentenario", "nombre": "Parque Bicentenario", "tipo": "parque", "comuna": "Vitacura", "importante": true, "radio": 350, "puntos": [[-33.4003, -70.6012]] },
+    { "id": "forestal", "nombre": "Parque Forestal", "tipo": "parque", "comuna": "Santiago", "importante": true, "radio": 200, "puntos": [[-33.4372, -70.6360], [-33.4350, -70.6450]] },
+    { "id": "santalucia", "nombre": "Cerro Santa Lucía", "tipo": "cerro", "comuna": "Santiago", "importante": true, "radio": 150, "puntos": [[-33.4403, -70.6437]] },
+    { "id": "quintanormal", "nombre": "Parque Quinta Normal", "tipo": "parque", "comuna": "Quinta Normal", "importante": true, "radio": 450, "puntos": [[-33.4432, -70.6800]] },
+    { "id": "ohiggins", "nombre": "Parque O'Higgins", "tipo": "parque", "comuna": "Santiago", "importante": true, "radio": 500, "puntos": [[-33.4640, -70.6604]] },
+    { "id": "araucano", "nombre": "Parque Araucano", "tipo": "parque", "comuna": "Las Condes", "importante": true, "radio": 350, "puntos": [[-33.4026, -70.5754]] },
+    { "id": "bustamante", "nombre": "Parque Bustamante", "tipo": "parque", "comuna": "Providencia", "importante": true, "radio": 250, "puntos": [[-33.4440, -70.6330]] }
+  ]
+}
