@@ -53,6 +53,7 @@ body {
 #status { top: 12px; background: var(--surface); color: var(--ink); box-shadow: 0 1px 6px rgba(0,0,0,0.2); }
 .toast { bottom: 28px; background: var(--toast-bg); color: var(--toast-ink); opacity: 0; transition: opacity 0.25s ease; font-weight: 600; }
 .toast.show { opacity: 1; }
+.dbg { position: absolute; left: 6px; top: 52px; max-width: calc(100% - 70px); padding: 4px 6px; border-radius: 6px; background: rgba(0,0,0,0.72); color: #8dffa8; font: 10px/1.35 ui-monospace, Menlo, Consolas, monospace; white-space: pre-wrap; word-break: break-all; pointer-events: none; }
 .map-btns { position: absolute; right: 12px; top: 56px; display: grid; gap: 8px; }
 .map-btns button { width: 44px; height: 44px; padding: 0; font: 600 22px/1 var(--body); background: var(--surface); border: 1px solid var(--line); box-shadow: 0 1px 4px rgba(0,0,0,0.2); }
 #btnCenter { position: absolute; left: 12px; bottom: 28px; padding: 10px 14px; background: var(--surface); box-shadow: 0 1px 4px rgba(0,0,0,0.2); }
@@ -132,12 +133,13 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
   <main class="stage" id="stage">
     <canvas id="map" aria-label="Mapa de Santiago con niebla que se despeja al caminar" role="img"></canvas>
     <div class="pill" id="status">Iniciando…</div>
+    <div class="dbg" id="dbg" hidden></div>
     <div class="map-btns">
       <button id="zin" type="button" aria-label="Acercar">+</button>
       <button id="zout" type="button" aria-label="Alejar">−</button>
     </div>
     <button id="btnCenter" type="button" hidden>Centrar en mí</button>
-    <div class="attrib">© <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> · © <a href="https://carto.com/attributions" target="_blank" rel="noopener">CARTO</a></div>
+    <div class="attrib">© <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> contributors</div>
     <div class="welcome" id="welcome" hidden>
       <h2 id="wTitle">Explora Santiago</h2>
       <p id="wText">La niebla del mapa se despeja por donde caminas. Necesitamos tu ubicación mientras la app está abierta.</p>
@@ -176,8 +178,9 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
   /* ================= Configuración (solo el desarrollador toca esto) ================= */
   var CONFIG = {
-    tilesLight: 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
-    tilesDark: 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
+    // Mapa de OpenStreetMap: gratis y sin clave. Para una app pública grande conviene un proveedor con cuenta (MapTiler, Stadia) y cambiar solo esta línea.
+    tilesLight: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+    tilesDark: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png', // en modo oscuro se oscurece al dibujar
     bounds: { south: -33.78, north: -33.22, west: -70.88, east: -70.42 }, // Gran Santiago
     center: { lat: -33.4489, lon: -70.6693 },                              // Plaza de Armas
     minZoom: 10, maxZoom: 19, startZoom: 14, followZoom: 17,
@@ -188,7 +191,7 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
     stepM: 0.75         // largo promedio de un paso
   };
   var Q = new URLSearchParams(location.search);
-  var DEMO = Q.has('demo'), DEV = Q.has('dev');
+  var DEMO = Q.has('demo'), DEV = Q.has('dev'), DBG = Q.has('debug') || DEV, VERSION = 'v6', lastTileUrl = '';
 
   /* ================= Matemática de mapa ================= */
   var D2R = Math.PI / 180, LAT0 = -33.45, COS0 = Math.cos(LAT0 * D2R);
@@ -290,13 +293,18 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
         tileErrs++;
         if (tileErrs === 6 && !tilesOk) toast('No se está cargando el mapa. Revisa tu conexión y recarga la página.', 9000);
       };
-      t.img.src = tileUrl(z, x, y);
+      lastTileUrl = tileUrl(z, x, y);
+      t.img.src = lastTileUrl;
       tiles.set(k, t);
       if (tiles.size > 600) tiles.delete(tiles.keys().next().value);
     }
     return t;
   }
   function drawTiles(ws) {
+    drawTilesRaw(ws);
+    if (dark) { ctx.fillStyle = 'rgba(10, 14, 18, 0.66)'; ctx.fillRect(0, 0, W, H); }
+  }
+  function drawTilesRaw(ws) {
     var Z = Math.max(0, Math.min(19, Math.round(view.z))), n = Math.pow(2, Z), tsz = ws / n;
     var left = view.mx * ws - W / 2, top = view.my * ws - H / 2;
     var x0 = Math.floor(left / tsz), x1 = Math.floor((left + W) / tsz), y0 = Math.floor(top / tsz), y1 = Math.floor((top + H) / tsz);
@@ -392,6 +400,13 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     if (DEV) drawDev(ws, mpp);
     drawMe(ws, mpp);
+    if (DBG) {
+      $('dbg').hidden = false;
+      $('dbg').textContent = VERSION + ' | zoom ' + view.z.toFixed(1) + ' | mapa cargado ' + tilesOk + ', fallos ' + tileErrs +
+        ' | puntos ' + pts.length + ' | tema ' + (dark ? 'oscuro' : 'claro') + ' | ' + W + 'x' + H + '\n' +
+        'yo: ' + (me ? me.lat.toFixed(4) + ', ' + me.lon.toFixed(4) + ' ±' + Math.round(me.acc) + ' m' : 'sin ubicación') + '\n' +
+        'ejemplo de mosaico: ' + lastTileUrl;
+    }
   }
 
   /* ---- Vista: límites y zoom ---- */
